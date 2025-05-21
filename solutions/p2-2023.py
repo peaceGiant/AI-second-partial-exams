@@ -1,7 +1,11 @@
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import recall_score
 
 dataset = [
     [14.23, 1.71, 2.43, 15.6, 127, 2.8, 3.06, .28, 2.29, 5.64, 1.04, 3.92, 1065, 0],
@@ -53,50 +57,56 @@ dataset = [
 if __name__ == '__main__':
     X = int(input())
 
-    model_names = ['Naive Bayes', 'Decision Tree', 'Random Forest', 'MLP']
+    dataset_0 = [row for row in dataset if row[-1] == 0]
+    dataset_1 = [row for row in dataset if row[-1] == 1]
+
+    train_set_0, test_set_0 = dataset_0[:int(X / 100 * len(dataset_0))], dataset_0[int(X / 100 * len(dataset_0)):]
+    train_set_1, test_set_1 = dataset_1[:int(X / 100 * len(dataset_1))], dataset_1[int(X / 100 * len(dataset_1)):]
+
     model_1 = GaussianNB()
     model_2 = DecisionTreeClassifier(criterion='entropy', random_state=0)
     model_3 = RandomForestClassifier(n_estimators=4, criterion='entropy', random_state=0)
     model_4 = MLPClassifier(hidden_layer_sizes=(10,), activation='relu', learning_rate_init=0.001, random_state=0)
-    models = [model_1, model_2, model_3, model_4]
 
-    dataset_0 = [row for row in dataset if row[-1] == 0]
-    dataset_1 = [row for row in dataset if row[-1] == 1]
-
-    train_set = dataset_0[:int(X / 100 * len(dataset_0))] + dataset_1[:int(X / 100 * len(dataset_1))]
-    test_set = dataset_0[int(X / 100 * len(dataset_0)):] + dataset_1[int(X / 100 * len(dataset_1)):]
+    train_set = train_set_0 + train_set_1
+    test_set = test_set_0 + test_set_1
 
     train_X, train_Y = [row[:-1] for row in train_set], [row[-1] for row in train_set]
     test_X, test_Y = [row[:-1] for row in test_set], [row[-1] for row in test_set]
 
+    models = [model_1, model_2, model_3, model_4]
+    names = ['Naive Bayes', 'Decision Tree', 'Random Forest', 'MLP']
     accs = []
     for model in models:
         model.fit(train_X, train_Y)
-        accs.append(model.score(test_X, test_Y))
+        acc = model.score(test_X, test_Y)
+        accs.append(acc)
 
     index = accs.index(max(accs))
 
-    print(f'Najgolema tocnost ima klasifikatorot {model_names[index]}')
+    print(f'Najgolema tocnost ima klasifikatorot {names[index]}')
 
+    # preds = []
     TP = 0
     FN = 0
-    for row_X, target_class in zip(test_X, test_Y):
-        votes_for_0 = 0
-        votes_for_1 = 0
+    for row_X, class_ in zip(test_X, test_Y):
+        votes_0 = 0
+        votes_1 = 0
 
         for i, model in enumerate(models):
-            predicted_class = model.predict([row_X])[0]
-            if predicted_class == 0:
-                votes_for_0 += 1 + (1 if i == index else 0)
+            prediction = model.predict([row_X])[0]
+            if prediction == 0:
+                votes_0 += 2 if i == index else 1
             else:
-                votes_for_1 += 1 + (1 if i == index else 0)
+                votes_1 += 2 if i == index else 1
 
-        prediction = 0 if votes_for_0 > votes_for_1 else 1
+        final_prediction = 0 if votes_0 > votes_1 else 1
+        # preds.append(final_prediction)
 
-        if prediction == target_class and prediction == 1:
+        if final_prediction == 1 and final_prediction == class_:
             TP += 1
-        elif prediction != target_class and prediction == 0:
+        elif final_prediction == 0 and final_prediction != class_:
             FN += 1
 
-    recall = TP / (TP + FN)
-    print(f'Odzivot na kolekcijata so klasifikatori e {recall}')
+    print(f'Odzivot na kolekcijata so klasifikatori e {TP / (TP + FN)}')
+    # print(f'Odzivot na kolekcijata so klasifikatori e {recall_score(test_Y, preds)}')
